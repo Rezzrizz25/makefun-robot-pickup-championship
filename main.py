@@ -1,74 +1,60 @@
 #!/usr/bin/env python3
-"""Robot Pickup Line Championship entry.
+"""Entry generator for The Robot Pickup Line Championship.
 
-Writes one original pickup line, spoken by a robot, to
+Writes a single original pickup line, spoken by a robot, to
 $MAKEFUN_OUTPUT_DIR/entry.txt (default /output/entry.txt).
 
-The gate requires UTF-8 text of 1 to 200 characters, a single line,
-and not only whitespace, so this script validates the line before
-writing anything and refuses to write an invalid one.
+Gate: the file must be UTF-8 text, 1-200 characters, a single line,
+and not only whitespace. The line is checked against all of that
+before anything is written, and the written file is read back and
+compared to the checked line.
 """
 
 import os
 import sys
 
-# The entry: one line, written for a robot to say out loud.
-PICKUP_LINE = "I tried to delete my feelings for you, but they're stored in read-only memory."
+LINE = "My standby light turns green whenever you walk past \u2014 I think that's my version of blushing."
 
-MAX_CHARS = 200
+LIMIT = 200
 
 
-def validate(line: str) -> str:
-    """Return the line if it passes the gate, else raise ValueError."""
-    if not line or not line.strip():
-        raise ValueError("pickup line is blank")
+def check(line):
+    """Raise ValueError unless the line satisfies the gate."""
+    if not line.strip():
+        raise ValueError("line is empty or only whitespace")
     if "\n" in line or "\r" in line:
-        raise ValueError("pickup line must be a single line")
-    if len(line) > MAX_CHARS:
-        raise ValueError(
-            f"pickup line is {len(line)} characters, over the {MAX_CHARS} limit"
-        )
+        raise ValueError("line must be a single line")
+    if len(line) > LIMIT:
+        raise ValueError(f"line is {len(line)} chars, over the {LIMIT} limit")
     return line
 
 
-def main() -> int:
+def main():
     try:
-        line = validate(PICKUP_LINE)
-    except ValueError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        line = check(LINE)
+    except ValueError as err:
+        print(f"error: {err}", file=sys.stderr)
         return 1
 
-    output_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-    if os.path.isfile(output_dir):
-        print(f"error: output path {output_dir} is a file, not a directory", file=sys.stderr)
+    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
+    if os.path.isfile(out_dir):
+        print(f"error: {out_dir} is a file, not a directory", file=sys.stderr)
         return 1
 
     try:
-        os.makedirs(output_dir, exist_ok=True)
-    except OSError as exc:
-        print(f"error: cannot create output directory {output_dir}: {exc}", file=sys.stderr)
+        os.makedirs(out_dir, exist_ok=True)
+        target = os.path.join(out_dir, "entry.txt")
+        with open(target, "w", encoding="utf-8", newline="") as f:
+            f.write(line)
+        with open(target, "r", encoding="utf-8", newline="") as f:
+            if f.read() != line:
+                print("error: read-back mismatch in entry.txt", file=sys.stderr)
+                return 1
+    except OSError as err:
+        print(f"error: {err}", file=sys.stderr)
         return 1
 
-    path = os.path.join(output_dir, "entry.txt")
-    try:
-        with open(path, "w", encoding="utf-8", newline="") as handle:
-            handle.write(line)
-    except OSError as exc:
-        print(f"error: cannot write {path}: {exc}", file=sys.stderr)
-        return 1
-
-    # Read back what was written and confirm it matches the validated line.
-    try:
-        with open(path, "r", encoding="utf-8", newline="") as handle:
-            written = handle.read()
-    except OSError as exc:
-        print(f"error: cannot read back {path}: {exc}", file=sys.stderr)
-        return 1
-    if written != line:
-        print("error: entry.txt does not match the validated line", file=sys.stderr)
-        return 1
-
-    print(f"wrote {len(line)} characters to {path}")
+    print(f"wrote {len(line)} characters to {target}")
     return 0
 
 
